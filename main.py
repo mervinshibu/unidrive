@@ -1,11 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from uuid import uuid4
 from models import FileMetadata, Base
 from database import engine, get_db
 from sqlalchemy.orm import Session
-from minio_client import minio_client, MINIO_BUCKET
-import mimetypes
+from s3_client import s3_client, S3_BUCKET
 
 app = FastAPI()
 
@@ -40,13 +39,11 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
 
     # Upload to MinIO
     try:
-        minio_client.put_object(
-            bucket_name=MINIO_BUCKET,
-            object_name=s3_key,
-            data=file.file,
-            length=-1,
-            part_size=10 * 1024 * 1024,
-            content_type=file.content_type
+        s3_client.upload_fileobj(
+            file.file,
+            S3_BUCKET,
+            s3_key,
+            ExtraArgs={"ContentType": file.content_type},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to store file: {str(e)}")
@@ -80,14 +77,15 @@ def get_file(file_id: str, db: Session = Depends(get_db)):
     if not metadata:
         raise HTTPException(status_code=404, detail="File not found")
 
-    temp_path = f"/tmp/{metadata.filename}"
-
     try:
-        minio_client.fget_object(MINIO_BUCKET, metadata.s3_key, temp_path)
+        response = s3_client.get_object(Bucket=S3_BUCKET, Key=metadata.s3_key)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
-
-    return FileResponse(path=temp_path, filename=metadata.filename)
+        raise HTTPException(status_code=500, detail=f"Failed to download from S3: {str(e)}")
+    return StreamingResponse(
+        response["Body"],
+        media_type=metadata.mime_type,
+        headers={"Content-Disposition": f'attachment; filename="{metadata.filename}"'}
+    )
 
 @app.delete("/files/{file_id}")
 def delete_file(file_id: str, db: Session = Depends(get_db)):
@@ -95,12 +93,10 @@ def delete_file(file_id: str, db: Session = Depends(get_db)):
 
     if not metadata:
         raise HTTPException(status_code=404, detail="File not found")
-
     try:
-        minio_client.remove_object(MINIO_BUCKET, metadata.s3_key)
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=metadata.s3_key)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
-
+        raise HTTPException(status_code=500, detail=f"Failed to delete from S3: {str(e)}")
     db.delete(metadata)
     db.commit()
 
