@@ -1,0 +1,9 @@
+TODO:
+Unit Tests
+Pagination for List all files API
+Change the code to use AWS S3 API directly instead of using the minio client.
+
+Future Enhanacements:
+Redis
+Progress for uploads
+Resumable uploads
