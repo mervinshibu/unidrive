@@ -16,7 +16,7 @@ Base.metadata.create_all(bind=engine)
 
 
 @app.post("/upload", responses=upload_responses)
-async def upload_file(file: Optional[UploadFile] = File(None), db: Session = Depends(get_db)):
+async def upload_file(file: UploadFile = File(None), db: Session = Depends(get_db)):
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
