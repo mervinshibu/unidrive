@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from uuid import uuid4
@@ -5,6 +7,7 @@ from models import FileMetadata, Base
 from database import engine, get_db
 from sqlalchemy.orm import Session
 from s3_client import s3_client, S3_BUCKET
+from responses import upload_responses, get_all_files_responses, get_file_responses, delete_file_responses
 
 app = FastAPI()
 
@@ -12,8 +15,11 @@ app = FastAPI()
 Base.metadata.create_all(bind=engine)
 
 
-@app.post("/upload")
-async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+@app.post("/upload", responses=upload_responses)
+async def upload_file(file: Optional[UploadFile] = File(None), db: Session = Depends(get_db)):
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+
     # Generate unique ID
     file_id = str(uuid4())
     MAX_SIZE = 20 * 1024 * 1024  # 20 MB
@@ -64,13 +70,13 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
     return {"id": file_id, "message": "File uploaded successfully"}
 
 
-@app.get("/files")
+@app.get("/files", responses=get_all_files_responses)
 def list_files(db: Session = Depends(get_db)):
     files = db.query(FileMetadata).all()
     return files
 
 
-@app.get("/files/{file_id}")
+@app.get("/files/{file_id}", responses=get_file_responses)
 def get_file(file_id: str, db: Session = Depends(get_db)):
     metadata = db.query(FileMetadata).filter(FileMetadata.id == file_id).first()
 
@@ -87,7 +93,7 @@ def get_file(file_id: str, db: Session = Depends(get_db)):
         headers={"Content-Disposition": f'attachment; filename="{metadata.filename}"'}
     )
 
-@app.delete("/files/{file_id}")
+@app.delete("/files/{file_id}", responses=delete_file_responses)
 def delete_file(file_id: str, db: Session = Depends(get_db)):
     metadata = db.query(FileMetadata).filter(FileMetadata.id == file_id).first()
 

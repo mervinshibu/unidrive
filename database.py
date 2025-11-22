@@ -1,14 +1,18 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+import os
 
-USERNAME = "postgres"
-PASSWORD = "postgres"
-HOSTNAME = "127.0.0.1:5432"
-DATABASE_NAME = "files_db"
 
-# DATABASE_URL = f"postgresql://{USERNAME}:{PASSWORD}@{HOSTNAME}/{DATABASE_NAME}"
+load_dotenv()
 
-DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:5432/files_db"
+USERNAME = os.getenv("POSTGRES_PASSWORD")
+PASSWORD = os.getenv("POSTGRES_PASSWORD")
+HOST = os.getenv("POSTGRES_HOST")
+PORT = os.getenv("POSTGRES_PORT")
+DATABASE_NAME = os.getenv("POSTGRES_DB")
+
+DATABASE_URL = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DATABASE_NAME}"
 
 
 engine = create_engine(DATABASE_URL)
