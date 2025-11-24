@@ -1,7 +1,3 @@
-TODO:
-Pagination for List all files API
-
 Future Enhanacements:
-Redis
-Progress for uploads
-Resumable uploads
+Pagination for List all files API
+Redis and CDN
